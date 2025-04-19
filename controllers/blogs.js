@@ -8,18 +8,14 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  try {
-    const blog = await Blog.create(req.body);
-    res.json(blog);
-  } catch (error) {
-    res.status(400).json({ error });
-  }
+  const blog = await Blog.create(req.body);
+  res.json(blog);
 });
 
 router.delete('/:id', async (req, res) => {
   const blogsDeleted = await Blog.destroy({ where: { id: req.params.id } });
   if (blogsDeleted === 0) {
-    res.status(404).json({ error: 'Blog not found' });
+    res.status(204).json({ error: 'Blog not found' });
     return;
   }
   res.status(204).end();
@@ -30,6 +26,10 @@ router.put('/:id', async (req, res) => {
   if (!blog) {
     res.status(404).send({ error: 'Blog not found' });
     return;
+  }
+
+  if (typeof req.body.likes === 'undefined') {
+    res.status(400).send({ error: 'You must set the likes' });
   }
 
   blog.likes = req.body.likes;
