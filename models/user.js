@@ -17,7 +17,14 @@ User.init(
     username: {
       type: DataTypes.STRING,
       allowNull: false,
-      unique: true,
+      unique: {
+        msg: 'This email is already in use',
+      },
+      validate: {
+        isEmail: {
+          msg: 'Validation isEmail on username failed',
+        },
+      },
     },
     passwordHash: {
       type: DataTypes.TEXT,
