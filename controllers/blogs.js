@@ -1,40 +1,67 @@
+const jwt = require('jsonwebtoken');
 const router = require('express').Router();
 
-const { Blog } = require('../models');
+const { Blog, User } = require('../models');
+const { SECRET } = require('../utils/config');
 
 router.get('/', async (req, res) => {
-  const blogs = await Blog.findAll();
+  const blogs = await Blog.findAll({
+    attributes: { exclude: ['userId'] },
+    include: {
+      model: User,
+      attributes: ['name'],
+    },
+  });
   res.json(blogs);
 });
 
-router.post('/', async (req, res) => {
-  const blog = await Blog.create(req.body);
+const userFinder = async (req, res, next) => {
+  if (req.token === null) {
+    return res.status(401).json({ error: 'token missing' });
+  }
+  const decodedToken = jwt.verify(req.token, SECRET);
+
+  const user = await User.findByPk(decodedToken.id);
+  if (!user) {
+    return res.status(404).send({ error: 'User not found' });
+  }
+  req.user = user;
+
+  next();
+};
+
+const blogFinder = async (req, res, next) => {
+  const blog = await Blog.findByPk(req.params.id);
+  if (!blog) {
+    return res.status(404).json({ error: 'Blog not found' });
+  }
+  req.blog = blog;
+
+  next();
+};
+
+router.post('/', userFinder, async (req, res) => {
+  const blog = Blog.build(req.body);
+  blog.userId = req.user.id;
+  await blog.save();
   res.json(blog);
 });
 
-router.delete('/:id', async (req, res) => {
-  const blogsDeleted = await Blog.destroy({ where: { id: req.params.id } });
-  if (blogsDeleted === 0) {
-    res.status(204).json({ error: 'Blog not found' });
-    return;
+router.delete('/:id', userFinder, blogFinder, async (req, res) => {
+  if (req.blog.userId != req.user.id) {
+    return res.status(401).json({ error: 'Unauthorized blog delete access' });
   }
+  await req.blog.destroy();
   res.status(204).end();
 });
 
-router.put('/:id', async (req, res) => {
-  const blog = await Blog.findByPk(req.params.id);
-  if (!blog) {
-    res.status(404).send({ error: 'Blog not found' });
-    return;
-  }
-
+router.put('/:id', blogFinder, async (req, res) => {
   if (typeof req.body.likes === 'undefined') {
     res.status(400).send({ error: 'You must set the likes' });
   }
-
-  blog.likes = req.body.likes;
-  await blog.save();
-  res.json(blog);
+  req.blog.likes = req.body.likes;
+  await req.blog.save();
+  res.json(req.blog);
 });
 
 module.exports = router;
