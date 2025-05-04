@@ -1,9 +1,8 @@
 const { Op } = require('sequelize');
-const jwt = require('jsonwebtoken');
 const router = require('express').Router();
 
 const { Blog, User } = require('../models');
-const { SECRET } = require('../utils/config');
+const { userFinder } = require('../utils/middleware');
 
 router.get('/', async (req, res) => {
   // Optimize where, doesn't do request when not needed
@@ -28,21 +27,6 @@ router.get('/', async (req, res) => {
   });
   res.json(blogs);
 });
-
-const userFinder = async (req, res, next) => {
-  if (req.token === null) {
-    return res.status(401).json({ error: 'token missing' });
-  }
-  const decodedToken = jwt.verify(req.token, SECRET);
-
-  const user = await User.findByPk(decodedToken.id);
-  if (!user) {
-    return res.status(404).send({ error: 'User not found' });
-  }
-  req.user = user;
-
-  next();
-};
 
 const blogFinder = async (req, res, next) => {
   const blog = await Blog.findByPk(req.params.id);

@@ -6,7 +6,7 @@ const { connectToDatabase } = require('./utils/db');
 const blogsRouter = require('./controllers/blogs');
 const authorsRouter = require('./controllers/authors');
 const usersRouter = require('./controllers/users');
-const readinglistRouter = require('./controllers/readinglists');
+const readinglistRouter = require('./controllers/readinglist');
 const loginRouter = require('./controllers/login');
 const { errorHandler, tokenExtractor } = require('./utils/middleware');
 
