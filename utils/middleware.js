@@ -15,7 +15,20 @@ const errorHandler = (error, request, response, next) => {
     error.name === 'SequelizeValidationError' ||
     error.name == 'SequelizeUniqueConstraintError'
   ) {
-    return response.status(400).json({ error: error.message });
+    return response
+      .status(400)
+      .json({
+        error: error.message,
+        details: error.errors.map((e) => e.message),
+      });
+  }
+
+  if (error.name === 'SequelizeForeignKeyConstraintError') {
+    return response.status(400).json({
+      error: `Foreign key constraint failed: ${
+        error.index || 'Invalid reference to another table.'
+      }`,
+    });
   }
 
   if (error.name === 'JsonWebTokenError') {
