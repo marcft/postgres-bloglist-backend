@@ -2,7 +2,7 @@ const { Op } = require('sequelize');
 const router = require('express').Router();
 
 const { Blog, User } = require('../models');
-const { userFinder } = require('../utils/middleware');
+const { userExtractor } = require('../utils/middleware');
 
 router.get('/', async (req, res) => {
   // Optimize where, doesn't do request when not needed
@@ -38,15 +38,22 @@ const blogFinder = async (req, res, next) => {
   next();
 };
 
-router.post('/', userFinder, async (req, res) => {
+// Middleware verifies the token and sets req.user, returning an error for invalid tokens.
+// Just if no token is provided, it sets req.user to null and continues.
+router.use(userExtractor);
+
+router.post('/', async (req, res) => {
+  if (req.user === null) {
+    return res.status(401).json({ error: 'Unauthorized blog post access' });
+  }
   const blog = Blog.build(req.body);
   blog.userId = req.user.id;
   await blog.save();
   res.json(blog);
 });
 
-router.delete('/:id', userFinder, blogFinder, async (req, res) => {
-  if (req.blog.userId != req.user.id) {
+router.delete('/:id', blogFinder, async (req, res) => {
+  if (req.user === null || req.blog.userId != req.user.id) {
     return res.status(401).json({ error: 'Unauthorized blog delete access' });
   }
   await req.blog.destroy();

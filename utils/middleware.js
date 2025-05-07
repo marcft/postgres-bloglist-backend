@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 
 const { SECRET } = require('../utils/config');
-const { User } = require('../models');
+const { User, ActiveSession } = require('../models');
 
 const tokenExtractor = (req, res, next) => {
   const authorization = req.get('authorization');
@@ -13,16 +13,39 @@ const tokenExtractor = (req, res, next) => {
   next();
 };
 
-const userFinder = async (req, res, next) => {
+const userExtractor = async (req, res, next) => {
+  // App won't throw any error if you access an API point with no auth need
   if (req.token === null) {
-    return res.status(401).json({ error: 'token missing' });
+    req.user = null;
+    next();
+    return;
   }
+
   const decodedToken = jwt.verify(req.token, SECRET);
 
   const user = await User.findByPk(decodedToken.id);
   if (!user) {
     return res.status(404).send({ error: 'User not found' });
   }
+
+  const activeSession = await ActiveSession.findOne({
+    where: {
+      userId: user.id,
+      sessionToken: req.token,
+    },
+  });
+
+  if (user.disabled !== false) {
+    if (activeSession) {
+      await activeSession.destroy();
+    }
+    return res.status(401).json({ error: 'User currently disabled' });
+  }
+
+  if (!activeSession) {
+    return res.status(401).json({ error: 'Please log in again' });
+  }
+
   req.user = user;
 
   next();
@@ -53,7 +76,11 @@ const errorHandler = (error, request, response, next) => {
     return response.status(401).json({ error: 'token invalid' });
   }
 
+  if (error.name === 'TokenExpiredError') {
+    return response.status(401).json({ error: 'token expired' });
+  }
+
   next(error);
 };
 
-module.exports = { errorHandler, tokenExtractor, userFinder };
+module.exports = { errorHandler, tokenExtractor, userExtractor };
